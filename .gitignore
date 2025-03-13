@@ -29,4 +29,9 @@ target/*
 target/classes
 target/test-classes
 target/maven-status
-*.iml
+*.iml!/.idea/
+/target/
+/invoice-scanner-service.iml
+/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
+/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
+!/target/invoice-scanner-service-0.0.1-SNAPSHOT.jar.original
