@@ -8,6 +8,7 @@ import org.iban4j.UnsupportedCountryException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
@@ -33,13 +34,19 @@ public class IbanValidationService {
      * ✅ **Validates a list of IBANs**
      */
     public List<String> validateIbans(List<String> ibans) {
+        // Handle null input
+        if (ibans == null) {
+            return Collections.emptyList();
+        }
+
+        // Filter and collect valid IBANs
         return ibans.stream()
                 .filter(this::isValidIban)
                 .collect(Collectors.toList());
     }
 
     /**
-     * ✅ **Checks if an IBAN is valid**
+     * **Checks if an IBAN is valid**
      * - Uses `Iban4j` where possible.
      * - Falls back to manual validation if the country is unsupported.
      */

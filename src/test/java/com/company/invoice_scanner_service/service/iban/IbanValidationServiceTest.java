@@ -2,64 +2,132 @@ package com.company.invoice_scanner_service.service.iban;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class IbanValidationServiceTest {
-    @Mock
-    private StringRedisTemplate redisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
 
     @InjectMocks
     private IbanValidationService ibanValidationService;
 
-    private static final String VALID_IBAN = "DE44500105175407324931";  // Valid IBAN (Germany)
-    private static final String INVALID_IBAN = "INVALIDIBAN123";       // Invalid IBAN
+    @Mock
+    private Logger log;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        // Reset mocks before each test
+        reset(log);
     }
 
     @Test
-    void testValidateIbans_ValidIban() {
-        List<String> result = ibanValidationService.validateIbans(List.of(VALID_IBAN));
+    void testValidateIbans_ValidIbans() {
+        // Arrange
+        List<String> ibans = Arrays.asList("BE68539007547034", "DE89370400440532013000");
 
-        assertEquals(1, result.size());
-        assertEquals(VALID_IBAN, result.getFirst());
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
+        assertEquals(2, result.size());
+        assertTrue(result.contains("BE68539007547034"));
+        assertTrue(result.contains("DE89370400440532013000"));
     }
 
     @Test
-    void testValidateIbans_InvalidIban() {
+    void testValidateIbans_InvalidIbans() {
+        // Arrange
+        List<String> ibans = Arrays.asList("INVALID_IBAN", "BE6853900754703"); // Invalid IBANs
 
-        List<String> result = ibanValidationService.validateIbans(List.of(INVALID_IBAN));
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
 
+        // Assert
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void testValidateIbans_MultipleIbans() {
+    void testValidateIbans_UnsupportedCountry() {
+        // Arrange
+        List<String> ibans = Collections.singletonList("XX12345678901234567890"); // Unsupported country
 
-        List<String> result = ibanValidationService.validateIbans(List.of(VALID_IBAN, INVALID_IBAN));
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
 
-        assertEquals(1, result.size());
-        assertEquals(VALID_IBAN, result.getFirst());
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void testValidateIbans_HandlesIbanFormatException() {
-        List<String> result = ibanValidationService.validateIbans(List.of(INVALID_IBAN));
+    void testValidateIbans_EmptyList() {
+        // Arrange
+        List<String> ibans = Collections.emptyList();
+
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testValidateIbans_NullList() {
+        // Arrange
+        List<String> ibans = null;
+
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testValidateIbans_ValidAndInvalidIbans() {
+        // Arrange
+        List<String> ibans = Arrays.asList("BE68539007547034", "INVALID_IBAN", "DE89370400440532013000");
+
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
+        assertEquals(2, result.size());
+        assertTrue(result.contains("BE68539007547034"));
+        assertTrue(result.contains("DE89370400440532013000"));
+    }
+
+    @Test
+    void testValidateIbans_InvalidFormat() {
+        // Arrange
+        List<String> ibans = Collections.singletonList("BE68-5390-0754-70345"); // Invalid format due to hyphens
+
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testValidateIbans_InvalidChecksum() {
+        // Arrange
+        // Use a structurally valid IBAN but with an invalid checksum
+        List<String> ibans = Collections.singletonList("BE0000000000000000"); // Invalid checksum
+
+        // Act
+        List<String> result = ibanValidationService.validateIbans(ibans);
+
+        // Assert
         assertTrue(result.isEmpty());
     }
 }
