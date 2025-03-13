@@ -23,6 +23,10 @@
 hs_err_pid*
 replay_pid*
 
+*.lst
 .idea
-target
+target/*
+target/classes
+target/test-classes
+target/maven-status
 *.iml

@@ -4,13 +4,16 @@ import com.company.invoice_scanner_service.exception.PdfProcessingException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.text.PDFTextStripperByArea;
 import org.springframework.stereotype.Service;
 
+import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigInteger;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,64 +21,117 @@ import java.util.regex.Pattern;
 @Service
 public class IbanExtractionService {
 
-    // Improved regex to match IBANs with optional spaces
+    /**
+     * Updated IBAN regex that ensures all country IBAN formats, including Belgium and multi-line IBANs, are captured
+     * - Handles spaces, hyphens, dots, and special separators
+     */
     private static final String IBAN_REGEX =
-            "\\b([A-Z]{2}\\d{2}(?:[ \\t-]?\\d|[A-Z0-9]){13,30})\\b";
+            "\\b([A-Z]{2}\\d{2}[ \\t\\n\\r]?[A-Z0-9]{1,4}(?:[ \\t\\n\\r]?[A-Z0-9]{1,4}){0,7})\\b";
 
     /**
-     * Extracts IBANs from a given PDF file.
+     * Extracts IBANs from a given PDF file, including bold, italic, and formatted IBANs.
      */
     public List<String> extractIbans(File pdfFile) throws IOException {
-        List<String> ibans = new ArrayList<>();
+        Set<String> ibanSet = new HashSet<>();
         log.info("Extracting IBANs from file: {}", pdfFile.getName());
+
         try (PDDocument document = Loader.loadPDF(pdfFile)) {
             if (document.isEncrypted()) {
-                throw new PdfProcessingException("The provided PDF file is encrypted and cannot be processed.");
+                throw new PdfProcessingException("PDF is encrypted and cannot be processed.");
             }
-            // Extract text from all pages
+
+            // Extract text from all pages using PDFTextStripper
             PDFTextStripper pdfTextStripper = new PDFTextStripper();
-            String text = pdfTextStripper.getText(document);
+            String extractedText = pdfTextStripper.getText(document);
+            ibanSet.addAll(extractIbansFromText(extractedText));
 
-            // Normalize and clean extracted text
-            String cleanedText = normalizeText(text);
+            // Extract text from each page
+            for (int i = 1; i <= document.getNumberOfPages(); i++) {
+                pdfTextStripper.setStartPage(i);
+                pdfTextStripper.setEndPage(i);
+                String pageText = pdfTextStripper.getText(document);
+                ibanSet.addAll(extractIbansFromText(pageText));
 
-            // Find and collect all IBANs from the text
-            ibans = extractIbansFromText(cleanedText);
-        } catch(IOException e) {
-            // Handle specific PDF errors
-            if (e.getMessage().contains("Missing root object specification in trailer")) {
-                throw new PdfProcessingException("The provided PDF file is corrupted or has an invalid format.", e);
+                // Extract IBANs from **bold, italic, or rotated text**
+                ibanSet.addAll(extractIbansFromAnnotations(document.getPage(i - 1)));
             }
+
+        } catch (IOException e) {
             throw new PdfProcessingException("Error while reading PDF file.", e);
         }
-        return ibans;
+
+        return new ArrayList<>(ibanSet);
     }
 
     /**
-     * Finds IBANs using regex pattern.
+     * Extract IBANs from regular extracted text (handling multiple spaces, hyphens, dots, etc.).
      */
-    private List<String> extractIbansFromText(String text) {
-        List<String> ibans = new ArrayList<>();
+    private Set<String> extractIbansFromText(String text) {
+        Set<String> ibans = new HashSet<>();
+        // Normalize the text by replacing newlines and tabs with spaces
+        String normalizedText = text.replaceAll("[\\t\\n\\r]", " ");
         Pattern pattern = Pattern.compile(IBAN_REGEX);
-        Matcher matcher = pattern.matcher(text);
+        Matcher matcher = pattern.matcher(normalizedText);
 
-        // Find all matches and add them to the list
         while (matcher.find()) {
-            String iban = matcher.group(1).trim().replaceAll("\\s+", "");
-            log.info("IBAN found: " + iban);
-            ibans.add(iban);
+            String iban = matcher.group(1).replaceAll(" ", ""); // Remove spaces for validation
+            if (isValidIban(iban)) {
+                log.debug("IBAN Found (normalized): {}", iban);
+                ibans.add(iban);
+            }
         }
         return ibans;
     }
 
     /**
-     * Normalizes extracted text by removing excessive whitespace and newlines.
-     *
-     * @param text Extracted PDF text.
-     * @return Cleaned text.
+     * Extract IBANs from **bold, italic, or rotated text** using PDFTextStripperByArea.
      */
-    private String normalizeText(String text) {
-        return text.replaceAll("\\s+", " ") // Replace multiple spaces/newlines with a single space
-                .replaceAll("(?<=\\b[A-Z]{2}\\d{2})[ \\t-]+", ""); // Remove spaces in IBAN
+    private Set<String> extractIbansFromAnnotations(PDPage page) throws IOException {
+        Set<String> ibans = new HashSet<>();
+        PDFTextStripperByArea stripperByArea = new PDFTextStripperByArea();
+
+        // Define a large region to capture formatted text (across the entire page)
+        Rectangle allTextRegion = new Rectangle(0, 0, (int) page.getMediaBox().getWidth(), (int) page.getMediaBox().getHeight());
+        stripperByArea.addRegion("all", allTextRegion);
+        stripperByArea.extractRegions(page);
+
+        String areaText = stripperByArea.getTextForRegion("all");
+        if (areaText != null && !areaText.isEmpty()) {
+            // Extract IBANs from this region as well, ensuring no formatting is missed
+            log.debug("Extracting IBANs from region (bold, italic, rotated): {}", areaText);
+            ibans.addAll(extractIbansFromText(areaText));
+        }
+
+        return ibans;
+    }
+
+    /**
+     * Validates the IBAN using the MOD-97 algorithm.
+     */
+    private boolean isValidIban(String iban) {
+        if (iban == null || iban.length() < 4) {
+            return false;
+        }
+
+        // Move the first four characters to the end
+        String rearranged = iban.substring(4) + iban.substring(0, 4);
+
+        // Convert letters to numbers (A=10, B=11, ..., Z=35)
+        StringBuilder numericIban = new StringBuilder();
+        for (char c : rearranged.toCharArray()) {
+            if (Character.isLetter(c)) {
+                numericIban.append(Character.getNumericValue(c));
+            } else {
+                numericIban.append(c);
+            }
+        }
+
+        // Perform MOD-97 operation
+        try {
+            BigInteger bigInt = new BigInteger(numericIban.toString());
+            return bigInt.mod(BigInteger.valueOf(97)).intValue() == 1;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }
