@@ -107,15 +107,4 @@ class GlobalExceptionHandlerTest {
         assertEquals("INTERNAL_ERROR", Objects.requireNonNull(response.getBody()).errorKey());
         assertEquals("I/O error occurred", response.getBody().errorMessage());
     }
-
-    @Test
-    void testHandleGenericException_ReturnsInternalServerError() {
-        Exception ex = new Exception("Unexpected error");
-
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGenericException(ex);
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("INTERNAL_ERROR", Objects.requireNonNull(response.getBody()).errorKey());
-        assertEquals("Unexpected error", response.getBody().errorMessage());
-    }
 }

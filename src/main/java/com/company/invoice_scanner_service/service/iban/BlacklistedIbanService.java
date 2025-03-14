@@ -31,7 +31,6 @@ public class BlacklistedIbanService {
                     .collect(Collectors.toList());
             validIbans.removeAll(blacklistedIbans);
             log.warn("Blacklisted IBANs detected: {}", blacklistedIbans);
-            System.out.println("Throwing exception " + blacklistedIbans);
             throw new BlacklistedIbanFoundException(blacklistedIbans, validIbans);
         }
     }

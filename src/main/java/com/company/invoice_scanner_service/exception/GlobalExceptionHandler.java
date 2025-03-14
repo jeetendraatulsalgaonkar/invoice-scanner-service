@@ -1,17 +1,21 @@
 package com.company.invoice_scanner_service.exception;
 
 import com.company.invoice_scanner_service.dto.InvoiceScanResponse;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
     @ExceptionHandler(InvalidUrlException.class)
     public ResponseEntity<ErrorResponse> handleInvalidUrlException(InvalidUrlException ex) {
         return ResponseEntity.badRequest().body(ErrorResponse.of("INVALID_URL", ex.getMessage(), Map.of()));
@@ -39,7 +43,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BlacklistedIbanFoundException.class)
     public ResponseEntity<InvoiceScanResponse> handleBlacklistedIbanFoundException(BlacklistedIbanFoundException ex) {
-        System.out.println(ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 InvoiceScanResponse.builder()
                         .message("Blacklisted IBANs found")
@@ -55,6 +58,38 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<ErrorResponse> handleIOException(IOException ex) {
+        return ResponseEntity.internalServerError().body(ErrorResponse.of("INTERNAL_ERROR", ex.getMessage(), Map.of()));
+    }
+
+    @ExceptionHandler(CompletionException.class)
+    public ResponseEntity<?> handleCompletionException(CompletionException ex) {
+        // Unwrap the CompletionException to get the actual cause
+        Throwable cause = ex.getCause();
+
+        // Handle the actual cause
+        return switch (cause) {
+            case BlacklistedIbanFoundException blacklistedIbanFoundException ->
+                    handleBlacklistedIbanFoundException(blacklistedIbanFoundException);
+            case InvalidUrlException invalidUrlException -> handleInvalidUrlException(invalidUrlException);
+            case PdfNotFoundException pdfNotFoundException -> handlePdfNotFoundException(pdfNotFoundException);
+            case NoIbanFoundException noIbanFoundException -> handleNoIbanFoundException(noIbanFoundException);
+            case InvalidIbansException invalidIbansException -> handleInvalidIbansException(invalidIbansException);
+            case IllegalArgumentException illegalArgumentException ->
+                    handleIllegalArgumentException(illegalArgumentException);
+            case PdfProcessingException pdfProcessingException -> handlePdfProcessingException(pdfProcessingException);
+            case IOException ioException -> handleIOException(ioException);
+            case RuntimeException runtimeException -> handleGenericException(runtimeException);
+            case null, default ->
+                // Fallback for unknown exceptions
+                    ResponseEntity.internalServerError()
+                            .body(ErrorResponse.of("INTERNAL_ERROR", "An unexpected error occurred", Map.of()));
+        };
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<?> handleGenericException(RuntimeException ex) {
+        log.error("Generic exception caught: {}", ex.getClass().getName());
+        log.error("Exception message: {}", ex.getMessage());
         return ResponseEntity.internalServerError().body(ErrorResponse.of("INTERNAL_ERROR", ex.getMessage(), Map.of()));
     }
 }
