@@ -1,7 +1,7 @@
 package com.company.invoice_scanner_service.service;
 
 import com.company.invoice_scanner_service.exception.*;
-import com.company.invoice_scanner_service.service.iban.BlacklistedIbanCheckService;
+import com.company.invoice_scanner_service.service.iban.BlacklistedIbanService;
 import com.company.invoice_scanner_service.service.iban.IbanExtractionService;
 import com.company.invoice_scanner_service.service.iban.IbanValidationService;
 import com.company.invoice_scanner_service.service.pdf.PdfDownloadService;
@@ -32,7 +32,7 @@ class TaskOrchestratorServiceTest {
     private IbanValidationService ibanValidationService;
 
     @Mock
-    private BlacklistedIbanCheckService blacklistedIbanCheckService;
+    private BlacklistedIbanService blacklistedIbanService;
 
     @InjectMocks
     private TaskOrchestratorService taskOrchestratorService;
@@ -53,7 +53,7 @@ class TaskOrchestratorServiceTest {
         // Arrange
         when(ibanExtractionService.extractIbans(MOCK_PDF)).thenReturn(List.of(VALID_IBAN));
         when(ibanValidationService.validateIbans(List.of(VALID_IBAN))).thenReturn(List.of(VALID_IBAN));
-        doNothing().when(blacklistedIbanCheckService).checkForBlacklistedIbans(List.of(VALID_IBAN));
+        doNothing().when(blacklistedIbanService).checkForBlacklistedIbans(List.of(VALID_IBAN));
 
         // Act
         List<String> result = taskOrchestratorService.processPdfForIbans(PDF_URL);
@@ -64,7 +64,7 @@ class TaskOrchestratorServiceTest {
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
         verify(ibanExtractionService, times(1)).extractIbans(MOCK_PDF);
         verify(ibanValidationService, times(1)).validateIbans(List.of(VALID_IBAN));
-        verify(blacklistedIbanCheckService, times(1)).checkForBlacklistedIbans(List.of(VALID_IBAN));
+        verify(blacklistedIbanService, times(1)).checkForBlacklistedIbans(List.of(VALID_IBAN));
     }
 
     @Test
@@ -77,7 +77,7 @@ class TaskOrchestratorServiceTest {
 
         // Verify
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
-        verifyNoInteractions(ibanExtractionService, ibanValidationService, blacklistedIbanCheckService);
+        verifyNoInteractions(ibanExtractionService, ibanValidationService, blacklistedIbanService);
     }
 
     @Test
@@ -91,7 +91,7 @@ class TaskOrchestratorServiceTest {
         // Verify
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
         verify(ibanExtractionService, times(1)).extractIbans(MOCK_PDF);
-        verifyNoInteractions(ibanValidationService, blacklistedIbanCheckService);
+        verifyNoInteractions(ibanValidationService, blacklistedIbanService);
     }
 
     @Test
@@ -105,7 +105,7 @@ class TaskOrchestratorServiceTest {
         // Verify
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
         verify(ibanExtractionService, times(1)).extractIbans(MOCK_PDF);
-        verifyNoInteractions(ibanValidationService, blacklistedIbanCheckService);
+        verifyNoInteractions(ibanValidationService, blacklistedIbanService);
     }
 
     @Test
@@ -121,7 +121,7 @@ class TaskOrchestratorServiceTest {
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
         verify(ibanExtractionService, times(1)).extractIbans(MOCK_PDF);
         verify(ibanValidationService, times(1)).validateIbans(List.of(INVALID_IBAN));
-        verifyNoInteractions(blacklistedIbanCheckService);
+        verifyNoInteractions(blacklistedIbanService);
     }
 
     @Test
@@ -130,7 +130,7 @@ class TaskOrchestratorServiceTest {
         when(ibanExtractionService.extractIbans(MOCK_PDF)).thenReturn(List.of(BLACKLISTED_IBAN));
         when(ibanValidationService.validateIbans(List.of(BLACKLISTED_IBAN))).thenReturn(List.of(BLACKLISTED_IBAN));
         doThrow(new BlacklistedIbanFoundException(List.of(BLACKLISTED_IBAN), List.of()))
-                .when(blacklistedIbanCheckService).checkForBlacklistedIbans(List.of(BLACKLISTED_IBAN));
+                .when(blacklistedIbanService).checkForBlacklistedIbans(List.of(BLACKLISTED_IBAN));
 
         // Act & Assert
         assertThrows(BlacklistedIbanFoundException.class, () -> taskOrchestratorService.processPdfForIbans(PDF_URL));
@@ -139,6 +139,6 @@ class TaskOrchestratorServiceTest {
         verify(pdfDownloadService, times(1)).downloadPdfs(PDF_URL);
         verify(ibanExtractionService, times(1)).extractIbans(MOCK_PDF);
         verify(ibanValidationService, times(1)).validateIbans(List.of(BLACKLISTED_IBAN));
-        verify(blacklistedIbanCheckService, times(1)).checkForBlacklistedIbans(List.of(BLACKLISTED_IBAN));
+        verify(blacklistedIbanService, times(1)).checkForBlacklistedIbans(List.of(BLACKLISTED_IBAN));
     }
 }

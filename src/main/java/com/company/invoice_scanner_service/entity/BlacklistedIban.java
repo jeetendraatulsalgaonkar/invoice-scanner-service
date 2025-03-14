@@ -24,6 +24,9 @@ public class BlacklistedIban {
     @Column(nullable = false, unique = true, length = 34)
     private String iban;
 
+    @Column(nullable = false)
+    private String reason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt = LocalDateTime.now();

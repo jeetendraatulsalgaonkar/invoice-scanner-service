@@ -11,4 +11,11 @@ public interface BlacklistedIbanRepository extends JpaRepository<BlacklistedIban
      * Finds blacklisted IBANs from a given list.
      */
     List<BlacklistedIban> findByIbanIn(List<String> ibans);
+
+    /**
+     * Checks if the iban is already blacklisted.
+     * @param iban IBAN string to check if it exists
+     * @return boolean value representing its existence.
+     */
+    boolean existsByIban(String iban);
 }

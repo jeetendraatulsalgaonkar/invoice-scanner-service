@@ -16,13 +16,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class BlacklistedIbanCheckServiceTest {
+class BlacklistedIbanServiceTest {
 
     @Mock
     private BlacklistedIbanRepository blacklistedIbanRepository;
 
     @InjectMocks
-    private BlacklistedIbanCheckService blacklistedIbanCheckService;
+    private BlacklistedIbanService blacklistedIbanService;
 
     private static final String VALID_IBAN = "DE44500105175407324931";
     private static final String BLACKLISTED_IBAN = "FR7630006000011234567890189";
@@ -38,7 +38,7 @@ class BlacklistedIbanCheckServiceTest {
         List<String> ibans = List.of(VALID_IBAN);
 
         // Act & Assert (should not throw)
-        assertDoesNotThrow(() -> blacklistedIbanCheckService.checkForBlacklistedIbans(ibans));
+        assertDoesNotThrow(() -> blacklistedIbanService.checkForBlacklistedIbans(ibans));
 
         // Verify repository call
         verify(blacklistedIbanRepository, times(1)).findByIbanIn(ibans);
@@ -58,7 +58,7 @@ class BlacklistedIbanCheckServiceTest {
         // Act & Assert
         BlacklistedIbanFoundException thrown = assertThrows(
                 BlacklistedIbanFoundException.class,
-                () -> blacklistedIbanCheckService.checkForBlacklistedIbans(ibans)
+                () -> blacklistedIbanService.checkForBlacklistedIbans(ibans)
         );
 
         // Assert Exception Contents
@@ -83,7 +83,7 @@ class BlacklistedIbanCheckServiceTest {
         // Act & Assert
         BlacklistedIbanFoundException thrown = assertThrows(
                 BlacklistedIbanFoundException.class,
-                () -> blacklistedIbanCheckService.checkForBlacklistedIbans(ibans)
+                () -> blacklistedIbanService.checkForBlacklistedIbans(ibans)
         );
 
         // Assert Exception Contents
@@ -100,7 +100,7 @@ class BlacklistedIbanCheckServiceTest {
         List<String> ibans = List.of();
 
         // Act & Assert
-        assertDoesNotThrow(() -> blacklistedIbanCheckService.checkForBlacklistedIbans(ibans));
+        assertDoesNotThrow(() -> blacklistedIbanService.checkForBlacklistedIbans(ibans));
 
         // Verify repository call (should be called but with an empty list)
         verify(blacklistedIbanRepository, times(1)).findByIbanIn(ibans);

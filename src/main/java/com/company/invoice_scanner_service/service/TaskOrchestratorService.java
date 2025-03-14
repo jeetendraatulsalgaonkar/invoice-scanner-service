@@ -3,7 +3,7 @@ package com.company.invoice_scanner_service.service;
 import com.company.invoice_scanner_service.exception.InvalidIbansException;
 import com.company.invoice_scanner_service.exception.NoIbanFoundException;
 import com.company.invoice_scanner_service.exception.PdfProcessingException;
-import com.company.invoice_scanner_service.service.iban.BlacklistedIbanCheckService;
+import com.company.invoice_scanner_service.service.iban.BlacklistedIbanService;
 import com.company.invoice_scanner_service.service.iban.IbanExtractionService;
 import com.company.invoice_scanner_service.service.iban.IbanValidationService;
 import com.company.invoice_scanner_service.service.pdf.PdfDownloadService;
@@ -23,7 +23,7 @@ public class TaskOrchestratorService {
     private final PdfDownloadService pdfDownloadService;
     private final IbanExtractionService ibanExtractionService;
     private final IbanValidationService ibanValidationService;
-    private final BlacklistedIbanCheckService blacklistedIbanCheckService;
+    private final BlacklistedIbanService blacklistedIbanService;
 
     /**
      * Orchestrates the entire process of downloading PDFs, extracting IBANs, validating them, and checking for blacklists.
@@ -59,7 +59,7 @@ public class TaskOrchestratorService {
         }
 
         // Step 4: Check for blacklisted IBANs
-        blacklistedIbanCheckService.checkForBlacklistedIbans(validIbans);
+        blacklistedIbanService.checkForBlacklistedIbans(validIbans);
 
         log.info("Successfully processed IBANs: {}", validIbans);
         // Step 5: If no blacklisted IBANs are found, return the valid IBANs

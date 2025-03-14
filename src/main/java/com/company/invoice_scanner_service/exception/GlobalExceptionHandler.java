@@ -32,13 +32,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.ok(ErrorResponse.of("INVALID_IBANS_PRESENT", ex.getMessage(), Map.of()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of("ILLEGAL_ARGUMENT", ex.getMessage(), Map.of()));
+    }
+
     @ExceptionHandler(BlacklistedIbanFoundException.class)
     public ResponseEntity<InvoiceScanResponse> handleBlacklistedIbanFoundException(BlacklistedIbanFoundException ex) {
-        return ResponseEntity.ok().body(
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 InvoiceScanResponse.builder()
                         .message("Blacklisted IBANs found")
                         .blackListedIbans(ex.getBlacklistedIbans())
-                        .validIbans(ex.getValidIbans())
                         .timestamp(Instant.now())
                         .build());
     }
