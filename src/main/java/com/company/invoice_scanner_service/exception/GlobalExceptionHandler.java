@@ -39,6 +39,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BlacklistedIbanFoundException.class)
     public ResponseEntity<InvoiceScanResponse> handleBlacklistedIbanFoundException(BlacklistedIbanFoundException ex) {
+        System.out.println(ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 InvoiceScanResponse.builder()
                         .message("Blacklisted IBANs found")
@@ -54,11 +55,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<ErrorResponse> handleIOException(IOException ex) {
-        return ResponseEntity.internalServerError().body(ErrorResponse.of("INTERNAL_ERROR", ex.getMessage(), Map.of()));
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         return ResponseEntity.internalServerError().body(ErrorResponse.of("INTERNAL_ERROR", ex.getMessage(), Map.of()));
     }
 }
