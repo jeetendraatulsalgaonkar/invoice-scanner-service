@@ -5,6 +5,9 @@ spring:
   application:
     name: invoice-scanner-service
 
+  config:
+    import: "classpath:config/application-iban-config.yml"
+
   flyway:
     baseline-on-migrate: true
     enabled: true

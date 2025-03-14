@@ -62,6 +62,7 @@ public class TaskOrchestratorService {
         blacklistedIbanCheckService.checkForBlacklistedIbans(validIbans);
 
         log.info("Successfully processed IBANs: {}", validIbans);
+        // Step 5: If no blacklisted IBANs are found, return the valid IBANs
         return validIbans;
     }
 }
