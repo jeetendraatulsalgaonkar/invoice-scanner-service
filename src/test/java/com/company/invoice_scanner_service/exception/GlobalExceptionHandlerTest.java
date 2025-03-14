@@ -67,17 +67,23 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void testHandleBlacklistedIbanFoundException_ReturnsValidResponse() {
+        // Arrange
         List<String> blacklistedIbans = List.of("FR7630006000011234567890189");
         List<String> validIbans = List.of("DE44500105175407324931");
         BlacklistedIbanFoundException ex = new BlacklistedIbanFoundException(blacklistedIbans, validIbans);
 
+        // Act
         ResponseEntity<InvoiceScanResponse> response = globalExceptionHandler.handleBlacklistedIbanFoundException(ex);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Blacklisted IBANs found", Objects.requireNonNull(response.getBody()).getMessage());
-        assertEquals(blacklistedIbans, response.getBody().getBlackListedIbans());
-        assertEquals(validIbans, response.getBody().getValidIbans());
-        assertNotNull(response.getBody().getTimestamp());
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+
+        InvoiceScanResponse responseBody = response.getBody();
+        assertNotNull(responseBody);
+        assertEquals("Blacklisted IBANs found", responseBody.getMessage());
+        assertEquals(blacklistedIbans, responseBody.getBlackListedIbans());
+        assertNull(responseBody.getValidIbans());
+        assertNotNull(responseBody.getTimestamp());
     }
 
     @Test

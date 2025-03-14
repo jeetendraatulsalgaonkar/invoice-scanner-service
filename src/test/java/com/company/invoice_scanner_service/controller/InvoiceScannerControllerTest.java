@@ -6,6 +6,7 @@ import com.company.invoice_scanner_service.exception.ErrorResponse;
 import com.company.invoice_scanner_service.exception.InvalidUrlException;
 import com.company.invoice_scanner_service.exception.NoIbanFoundException;
 import com.company.invoice_scanner_service.service.TaskOrchestratorService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,29 +47,29 @@ class InvoiceScannerControllerTest {
                 .timestamp(Instant.now())
                 .build();
 
-        when(taskOrchestratorService.processPdfForIbans(anyString())).thenReturn(List.of("DE44500105175407324931"));
+        when(taskOrchestratorService.processPdfsForIbans(anyList())).thenReturn(List.of("DE44500105175407324931"));
 
-        this.mockMvc.perform(get("/api/invoice-scanner/process")
-                        .param("url", validUrl)
-                        .contentType(MediaType.APPLICATION_JSON))
+        this.mockMvc.perform(post("/api/invoice-scanner/process")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(List.of(validUrl)))) // Send URLs in the request body
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value(expectedResponse.getMessage()))
-                .andExpect(jsonPath("$.validIbans[0]").value(expectedResponse.getValidIbans().get(0)))
+                .andExpect(jsonPath("$.validIbans[0]").value(expectedResponse.getValidIbans().getFirst()))
                 .andExpect(jsonPath("$.blackListedIbans").doesNotExist());
 
-        verify(taskOrchestratorService, times(1)).processPdfForIbans(validUrl);
+        verify(taskOrchestratorService, times(1)).processPdfsForIbans(List.of(validUrl));
     }
 
     @Test
     void testScanInvoices_InvalidUrl_ReturnsBadRequest() throws Exception {
         String invalidUrl = "invalid-url";
 
-        when(taskOrchestratorService.processPdfForIbans(invalidUrl)).thenThrow(new InvalidUrlException("Invalid URL format: " + invalidUrl));
+        when(taskOrchestratorService.processPdfsForIbans(List.of(invalidUrl))).thenThrow(new InvalidUrlException("Invalid URL format: " + invalidUrl));
 
-        mockMvc.perform(get("/api/invoice-scanner/process")
-                        .param("url", invalidUrl)
-                        .contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(post("/api/invoice-scanner/process")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(List.of(invalidUrl)))) // Send URLs in the request body
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorKey").value("INVALID_URL"))
                 .andExpect(jsonPath("$.errorMessage").value("Invalid URL format: invalid-url"));
@@ -80,11 +81,11 @@ class InvoiceScannerControllerTest {
         ErrorResponse expectedResponse = ErrorResponse.of("NO_IBAN_FOUND", "No IBANs found in the provided documents.", Map.of());
 
         doThrow(new NoIbanFoundException("No IBANs found in the provided documents."))
-                .when(taskOrchestratorService).processPdfForIbans(validUrl);
+                .when(taskOrchestratorService).processPdfsForIbans(List.of(validUrl));
 
-        mockMvc.perform(get("/api/invoice-scanner/process")
-                        .param("url", validUrl)
-                        .contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(post("/api/invoice-scanner/process")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(List.of(validUrl)))) // Send URLs in the request body
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.errorKey").value(expectedResponse.errorKey()))
@@ -102,31 +103,34 @@ class InvoiceScannerControllerTest {
                 .build();
 
         doThrow(new BlacklistedIbanFoundException(List.of("DE89370400440532013000"), List.of("DE44500105175407324931")))
-                .when(taskOrchestratorService).processPdfForIbans(validUrl);
+                .when(taskOrchestratorService).processPdfsForIbans(List.of(validUrl));
 
-        mockMvc.perform(get("/api/invoice-scanner/process")
-                        .param("url", validUrl)
-                        .contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(post("/api/invoice-scanner/process")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(List.of(validUrl)))) // Send URLs in the request body
                 .andDo(print())
-                .andExpect(status().isOk())
+                .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message", Matchers.equalTo(expectedResponse.getMessage())))
                 .andExpect(jsonPath("$.blackListedIbans", Matchers.equalTo(expectedResponse.getBlackListedIbans())))
-                .andExpect(jsonPath("$.validIbans", Matchers.equalTo(expectedResponse.getValidIbans())));
+                .andExpect(jsonPath("$.validIbans", Matchers.nullValue()));
     }
 
     @Test
     void testScanInvoices_InternalServerError() throws Exception {
+        // Arrange
         String validUrl = "https://example.com/invoice.pdf";
+        List<String> urls = List.of(validUrl);
 
-        when(taskOrchestratorService.processPdfForIbans(validUrl)).thenThrow(new RuntimeException("Unexpected error"));
+        when(taskOrchestratorService.processPdfsForIbans(urls)).thenThrow(new RuntimeException("Unexpected error"));
 
-        mockMvc.perform(get("/api/invoice-scanner/process")
-                        .param("url", validUrl)
-                        .contentType(MediaType.APPLICATION_JSON))
+        // Act & Assert
+        mockMvc.perform(post("/api/invoice-scanner/process")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(urls))) // Send URLs in the request body
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.errorKey").value("INTERNAL_ERROR"))
-                .andExpect(jsonPath("$.errorMessage").value("Unexpected error"));
+                .andExpect(jsonPath("$.errorKey").value("INTERNAL_ERROR")) // Adjust based on actual response structure
+                .andExpect(jsonPath("$.errorMessage").value("Unexpected error")); // Adjust based on actual response structure
 
-        verify(taskOrchestratorService, times(1)).processPdfForIbans(validUrl);
+        verify(taskOrchestratorService, times(1)).processPdfsForIbans(urls);
     }
 }

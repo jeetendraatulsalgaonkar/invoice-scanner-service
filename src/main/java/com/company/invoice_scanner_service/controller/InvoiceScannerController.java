@@ -27,7 +27,7 @@ public class InvoiceScannerController {
      * Endpoint to process PDFs from a given URL and extract IBANs.
      */
     @Operation(
-            summary = "Process PDFs from a given URL and extract IBANs",
+            summary = "Process PDFs from a given URLs and extract IBANs",
             description = "Downloads PDF files, extracts IBANs, validates them, and checks against a blacklist",
             responses = {
                     @ApiResponse(responseCode = "200", description = "IBAN extraction successful",
@@ -36,10 +36,10 @@ public class InvoiceScannerController {
                             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
             }
     )
-    @GetMapping("/process")
-    public ResponseEntity<?> processInvoices(@RequestParam String url) {
-        log.info("Received request to process PDFs from URL: {}", url);
-        List<String> validIbans = taskOrchestratorService.processPdfForIbans(url);
+    @PostMapping("/process")
+    public ResponseEntity<?> processInvoices(@RequestBody List<String> urls) {
+        log.info("Received request to process PDFs from URL: {}", String.join(",", urls));
+        List<String> validIbans = taskOrchestratorService.processPdfsForIbans(urls);
 
         return ResponseEntity.ok(
             InvoiceScanResponse.builder()

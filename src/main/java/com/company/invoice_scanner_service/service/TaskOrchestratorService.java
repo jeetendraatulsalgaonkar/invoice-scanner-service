@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,10 +28,29 @@ public class TaskOrchestratorService {
     private final IbanValidationService ibanValidationService;
     private final BlacklistedIbanService blacklistedIbanService;
 
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+    /**
+     * Processes PDFs from a list of URLs and extracts IBANs.
+     */
+    public List<String> processPdfsForIbans(List<String> urls) {
+        List<CompletableFuture<List<String>>> futures = urls.stream()
+                .map(url -> CompletableFuture.supplyAsync(() -> furtherProcessPdfForIbans(url), executorService))
+                .toList();
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+        return allFutures.thenApply(v ->
+                        futures.stream()
+                                .flatMap(future -> future.join().stream())
+                                .collect(Collectors.toList()))
+                .join();
+    }
+
     /**
      * Orchestrates the entire process of downloading PDFs, extracting IBANs, validating them, and checking for blacklists.
      */
-    public List<String> processPdfForIbans(String pdfUrl) {
+    List<String> furtherProcessPdfForIbans(String pdfUrl) {
         log.info("Starting processing for URL: {}", pdfUrl);
 
         // Step 1: Download PDF files
